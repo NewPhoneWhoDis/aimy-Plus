@@ -1,0 +1,843 @@
+@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+}
+
+
+
+<div class="row" style="padding-bottom: 12px;">
+    <div class="col-md-1 col-sm-1 col-xs-3" id="calendar-container">
+        <div class="calendar-date">
+            <em>@LocalizationUtil.LocalNow().ToString("ddd")</em>
+            <strong>@LocalizationUtil.LocalNow().ToString("MMM")</strong>
+            <span>@LocalizationUtil.LocalNow().ToString("dd")</span>
+        </div>
+    </div>
+
+    <div class="col-md-11 col-sm-11 col-xs-9">
+        <h2 id="dashboard-title">Welcome to your Dashboard</h2>
+
+        <div class="col-md-12" id="site-indicator">
+            <span class="org-name" style="font-size:18px;">@ViewBag.SiteName</span>
+            <span class="type-badge badge" style="background-color: @ViewBag.SiteColor;"
+                  data-toggle="tooltip" data-placement="right" title="@ViewBag.SiteDescripton">@ViewBag.SiteDescripton</span>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="row whole-row">
+        <div class="col-md-4 col-xs-12" id="first-row-left">
+            <div class="row small-widget">
+                <div class="block-container col-md-6">
+                    <div class="k-header">
+                        <p id="top-right-small-sites-number" class="topright"> +@ViewBag.NewSitesThisYear</p>
+                        <p id="total-sites-number" class="big-number">@ViewBag.TotalSites</p>
+                        <p class="title">Total Sites</p>
+                        <p class="subtitle"></p>
+                    </div>
+                </div>
+                <div class="block-container col-md-6">
+                    <div class="k-header">
+                        <p id="top-right-small-number" class="topright"> +1 </p>
+                        <p id="total-owners-number" class="big-number">@ViewBag.TotalOwners</p>
+                        <p>Owners</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 col-xs-12" id="first-row-middle">
+            <div class="row-small-widget">
+                <div class="block-container col-md-6">
+                    <div class="k-header">
+                        <p id="total-bookings-full-number" class="big-number">@ViewBag.TotalBookingNumber</p>
+                        <p class="title">Total Bookings</p>
+                        <p class="subtitle">This Term</p>
+                    </div>
+                </div>
+                <div class="block-container col-md-6">
+                    <div class="k-header">
+                        <p id="total-attendance" class="big-number">@ViewBag.Attendance</p>
+                        <p class="title">Attendance</p>
+                        <p class="subtitle">This Week</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 col-xs-12" id="first-row-right">
+
+            <div class="invoice-block-container">
+                <div class="k-header">
+                    <p id="invoice-value" class="big-number">$@ViewBag.TotalInvoiceAmount</p>
+                    <p class="title">Inv Value</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="row whole-row">
+        <div id="onSiteAndMissing" class="col-md-6">
+            <div class="col-md-6 col-xs-12 on-site-widget">
+                <div class="col-md-12">
+                    <div class="col-md-3">
+                        <p class="on-site-number-description">Accounted</p>
+                        <p class="medium-number">33</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p class="on-site-number-description">Unaccounted</p>
+                        <p class="medium-number">@ViewBag.TotalUnaccountedToday</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p class="on-site-number-description">Absent</p>
+                        <p class="medium-number">@ViewBag.TotalAbsentToday</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p class="on-site-number-description">Total</p>
+                        <p class="medium-number">@ViewBag.ChildOnSiteToday</p>
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <p class="on-site-portion-description">On Site Today</p>
+                </div>
+            </div>
+            <div id="gauge-container" class="col-md-6">
+                <div id="missingSignaturesContainer" class="col-md-6">
+                    <div id="missingSignaturesGauge" class="col-md-6">
+                    </div>
+                    <div id="missingSigDes" class="col-md-6"> <p id="missingDataNumberSignatures">@ViewBag.MissingSignatures</p> Missing Signatures</div>
+                </div>
+                <div id="incompleteRegistrationContainer" class="col-md-6">
+                    <div id="incompleteRegistration" class="col-md-6">
+                    </div>
+                    <div id="incompleteRegDes"> <p id="missingDataNumberRegistration">@ViewBag.IncompleteRegistration</p> Incomplete Registrations</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6" id="map">
+        </div>
+    </div>
+
+    <div class="row whole-row">
+        <div class="col-md-6 col-xs-12" id="third-row-left">
+            <div class="col-xs-12 chart-subtitle">
+            </div>
+            <div id="futureBookingChart"></div>
+        </div>
+        <div class="col-md-6" id="third-row-right">
+            <div id="grid">
+                @*<button id="button" type="button">Reload</span></button>*@
+                <a class="k-pager-refresh k-link k-button" id="reloadButton" title="Refresh">Reload</a>
+                <a class="k-pager-refresh k-link k-button" id="backButton" title="Refresh">Back</a>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+    $(document).ready(function () {
+        $("#total-booking-full-number").kendoTooltip({
+            content: "@ViewBag.TotalBookingAmountFull",
+            position: "top"
+        });
+
+        //Gauge function
+        createGauge();
+
+        })
+
+        //Map (function initMap) initialized in the <script> tag after the API key
+        var globalMap = null;
+
+        function initMap() {
+
+            getLocations();
+
+
+            var auckland = { lat: -36.8485, lng: 174.7633 };
+
+            var map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 7,
+                center: auckland
+            });
+            globalMap = map;
+
+        }
+
+        //New Array to be used to get longitudes and latitdues of Sites
+        var locations = [];
+
+        function getLocations(id) {
+            $.ajax({
+            type: "GET",
+            dataType: "json",
+            data: id,
+            url: '@Url.Action("InternationalGridChildOrgData", "DashboardFour")',
+            success: function (data) {
+                //console.log(data)
+                //console.log(id);
+                debugger;
+
+                function setMapOnAll(globalMap) {
+                    for (var i = 0; i < locations.length; i++) {
+                        locations[i].setMap(globalMap);
+                    }
+                }
+                setMapOnAll(null);
+
+                locations = [];
+
+                for (i = 0; i < data.length; i++) {
+
+                    if (data[i].Longitude != null || data[i].Latitude != 0) {
+
+
+                   var latitude = data[i].Latitude;
+                   var longitude = data[i].Longitude;
+                   var myLatLng = { lat: latitude, lng: longitude };
+                   var name = data[i].Name;
+
+                   locations[i] = new google.maps.Marker({
+                       position: myLatLng,
+                       map: globalMap,
+                       title: name
+                   });
+
+                    }
+                    else
+                    {
+
+                    }
+                }
+                debugger;
+            },
+
+            error: function (error) {
+            }
+        })
+        };
+
+
+    function createGauge() {
+
+        $.ajax({
+            type: "GET",
+            dataType: "json",
+
+            url: '@Url.Action("GetMissingData", "DashboardFour")',
+            success: function (result) {
+                //console.log(result);
+                $("#missingSignaturesGauge").kendoRadialGauge({
+                    pointer: {
+                        value: result[0].MissingSignitureNumber,
+                        color: "#ea7001"
+                    },
+
+                    scale: {
+                        minorUnit: 100,
+                        startAngle: -60,
+                        endAngle: 240,
+                        max: 1500
+                    },
+                    labels: {
+                        value: "Testing"
+                        },
+                })
+
+                $("#incompleteRegistration").kendoRadialGauge({
+                    pointer: {
+                        value: result[0].IncompleteRegistrationNumber,
+                        color: "#ea7001"
+                    },
+
+                    scale: {
+                        minorUnit: 5,
+                        startAngle: -60,
+                        endAngle: 240,
+                        max: 20,
+
+                        majorUnit: 1,
+                        majorTicks: {
+                            width: 1,
+                            size: 7
+
+                        },
+                    }
+                })
+            }
+        })
+    };
+
+
+  //FutureBookingChart:
+    function createFutureBookingChart() {
+            $("#futureBookingChart").kendoChart({
+                dataSource: {
+                    transport: {
+                        read: {
+                            url: '@Url.Action("GetFututreBookings", "DashboardFour")',
+                            dataType: "json",
+                        }
+                    },
+                    schema: {
+                        model: {
+                            fields: {
+                                timePeriod: {
+                                    type: "date"
+                                }
+                            }
+                        }
+                    }
+                },
+                title: {
+                    text: "Future Bookings"
+
+                },
+                legend: {
+                    visible: false
+                },
+                chartArea: {
+                    height: 280,
+                    width: 560
+                },
+                seriesDefaults: {
+                    type: "line",
+                    markers: {
+                        visible: false
+                    }
+                },
+                series: [{
+                    //width: 5,
+                    field: "bookings",
+                    name: "Future Bookings",
+                    categoryField: "timePeriod",
+
+                }
+                ],
+                seriesColors: ["#92C5EB", "#FDB933"],
+                valueAxis: {
+                    title: {
+                        text: "Average Daily Number"
+                    },
+                    labels: {
+                        //format: "{0}%"
+                    },
+                    line: {
+                        visible: false
+                    },
+                    axisCrossingValue: -10,
+                    //majorUnit: 2
+                },
+                categoryAxis: {
+                    notes: {
+                        line: {
+                            length: 200,
+                            color: "#FF0000"
+                        },
+                        icon: {
+                            border: {
+                                width: 0
+                            }
+                        },
+                        // Initial notes
+                        data: [{
+                            value: new Date(),
+                            label: {
+                                text: "Now",
+                                color: "#FF0000"
+                            }
+                        }]
+                    },
+                    majorGridLines: {
+                        visible: false
+                    },
+                    majorTicks: {
+                        step: 6
+                    },
+                    labels: {
+                        format: "dd/MM",
+                        step: 6
+                    },
+                    baseUnit: "weeks",
+                },
+                tooltip: {
+                    visible: true,
+                    //format: "{0}%",
+                    template: "#= series.name #: #= value #"
+                }
+            });
+        }
+
+
+     function InternationDashboardGrid() {
+
+            var childOrgDataSource = new kendo.data.DataSource({
+
+            transport: {
+                read: {
+                    url: "@Url.Action("InternationalGridChildOrgData", "DashboardFour")",
+                   // cache: false
+                },
+            },
+            schema: {
+                model: {
+                     id: "Id",
+                    fields: {
+                        Name: {},
+                        TotalSites: {},
+                        TotalBookings: {},
+                        TotalAttendance: {},
+                        TotalInvoiceValue: {},
+                    },
+                },
+            },
+            pageSize: 50,
+            sortable: true,
+
+            });
+            console.log(childOrgDataSource);
+
+            var grid = $("#grid").kendoGrid({
+                dataBound: function () {
+                    var cells = $('td')
+                    for (var i = 0; i < cells.length; i++) {
+                        $(cells[i]).addClass('gridCell');
+                    }
+                },
+                dataSource: childOrgDataSource,
+                selectable: "multiple, row",
+                change: onClickSelection,
+                navigatable: true,
+                pageable: false,
+                sortable: true,
+                // detailInit: detailInit,
+                // persistSelection: false,
+                columns:
+                [{
+                    field: "Name",
+                    title: "Name",
+
+                },
+                {
+                    field: "TotalSites",
+                    title: "Total Sites",
+                    attributes: {
+                        style: "text-align: center; font-size: 15px"
+                    }
+
+                },
+                {
+                    field: "TotalBookingNumber",
+                    title: "Bookings",
+                    attributes: {
+                        style: "text-align: center; font-size: 15px"
+                    }
+                },
+                {
+                    field: "TotalAttendanceNumber",
+                    title: "Attendance",
+                    attributes: {
+                        style: "text-align: center; font-size: 15px"
+                    }
+                },
+                {
+                    field: "TotalInvoiceAmount",
+                    title: "Invoice Value",
+                    attributes: {
+                        style: "text-align: center; font-size: 15px"
+                    }
+
+                },
+                {
+                    command: [
+                        {
+                            name: "View",
+                            click: function () {
+                                console.log("Eventually Load full Dashboard for this site")
+                            },
+
+                        }]
+                }
+                ],
+               height: 400,
+            })
+        };
+
+
+     function onClickSelection(e) {
+            e.preventDefault();
+            var grid = $("#grid").data("kendoGrid");
+            var selectedItem = grid.dataItem(grid.select());
+            
+         //console.log(selectedItem);
+            console.log(selectedItem.id);
+
+            if (selectedItem.TotalSites > 0)
+            {
+                grid.dataSource.read({ id: selectedItem.id });
+                grid.refresh();
+                getLocations({ id: selectedItem.id });
+                //Somehow need to pass back selectedItemId
+                console.log("selectedItem.TotalSites > 0 TRIGGERED")
+
+            }
+            else
+            {
+                alert("No further organisations")
+            }
+
+            $("#backButton").click(function (e) {
+                e.stopPropagation();
+                if (selectedItem.ParentOrgId == 0)
+                {
+                    grid.dataSource.read();
+                    grid.refresh();
+                    console.log(selectedItem.ParentOrgId);
+                    getLocations();
+                }
+                else
+                {
+
+                    grid.dataSource.read({ id: selectedItem.ParentOrgId });
+                    grid.refresh();
+                    console.log(selectedItem.ParentOrgId)
+                    getLocations({ id: selectedItem.ParentOrgId });
+                }
+
+            })
+        }
+
+        $("#reloadButton").click(function (e) {
+            e.stopPropagation();
+            var grid = $("#grid").data("kendoGrid");
+            grid.dataSource.read();
+            grid.refresh();
+            getLocations();
+        });
+
+
+    $(document).ready(createFutureBookingChart);
+        $(document).bind("kendo:skinChange", createFutureBookingChart);
+
+               //International Table
+        $(document).ready(InternationDashboardGrid);
+        $(document).bind("kendo:skinChange", InternationDashboardGrid);
+    </script>
+
+    <script async defer
+            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAUaNPKDi6nsxbk3Nv3Rn6k5OeLMcnFzCg&callback=initMap">
+        // New API Key: AIzaSyBayxtLfpWt5JAUYVdcukjtBVAMt4tJETc
+        //Old API Key : AIzaSyAUaNPKDi6nsxbk3Nv3Rn6k5OeLMcnFzCg
+    </script>
+
+    <script src="https://www.gstatic.com/charts/loader.js"></script>
+
+
+
+    <style>
+        .gridCell {
+            color: black;
+            /*padding-left:0px;
+            font-weight: 500;*/
+        }
+
+        .k-header {
+            padding-left: 20px;
+            padding-right: 3.04px;
+        }
+
+        .big-number {
+            font-size: 55px;
+            padding-top: 10px;
+            width: 50%;
+            margin-bottom: 0px;
+            left: 40px;
+        }
+
+        .block-container {
+            background-color: #FFFFFF;
+            height: 137px;
+            /*position: relative;*/
+            /*width: 50%;*/
+            margin-right: 0%;
+            padding-right: 5px;
+            overflow: hidden;
+        }
+
+        #button {
+            right: 100px;
+        }
+
+        .invoice-block-container {
+            background-color: #FFFFFF;
+            height: 137px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #calendar-container {
+            max-width: 65px;
+            padding-right: 0 !important;
+        }
+
+        /*.col-md-6 {
+            padding-right: 10px;
+        }*/
+
+        #dashboard-title {
+            padding-bottom: 0px !important;
+            padding-top: 0px !important;
+            margin: 0px !important;
+        }
+
+        div.calendar-date {
+            font-size: 1em;
+            /*change calendarIcon size */
+            display: block;
+            position: relative;
+            width: 4.5em;
+            height: 4.5em;
+            background-color: #fff;
+            border-radius: 0.7em;
+            -moz-border-radius: 0.7em;
+            overflow: hidden;
+            float: left;
+        }
+
+            div.calendar-date * {
+                display: block;
+                width: 100%;
+                font-size: 1em;
+                font-weight: bold;
+                font-style: normal;
+                text-align: center;
+            }
+
+            div.calendar-date strong {
+                position: absolute;
+                top: 0;
+                padding: -0.8em 0;
+                color: #fff;
+                background-color: #FF3B30;
+                box-shadow: 0 2px 0 #FF3B30;
+            }
+
+            div.calendar-date em {
+                position: absolute;
+                bottom: 0em;
+                color: #2f2f2f;
+                padding-top: .2em;
+                height: 1.6em;
+            }
+
+            div.calendar-date span {
+                font-size: 1.8em;
+                letter-spacing: -0.05em;
+                padding-top: 0.7em;
+                color: #2f2f2f;
+            }
+
+        #first-row-left {
+            /*padding-right: 2.5px;*/
+            width: 35%
+        }
+
+        #first-row-middle {
+            padding-left: 2.5px;
+            padding-right: 2.5px;
+            padding-bottom: 5px;
+            width: 35%;
+        }
+
+        #first-row-right {
+            /*padding-left: 2.5px;*/
+            width: 30%;
+            padding-left: 2px;
+        }
+
+        #gauge-container {
+            background: white;
+            width: 100%;
+            height: 230px;
+            /*height: 226px;
+            text-align: left;
+            margin-right: 15px;
+            width: 460px;*/
+            /*margin: 0 auto 30px auto;*/
+        }
+
+            #gauge-container .k-slider {
+                margin-top: -11px;
+                width: 140px;
+            }
+
+        .k-grid td {
+            padding: 1.1em;
+        }
+
+        .k-pager-refresh {
+            padding-top: 2px;
+            padding-bottom: 2px;
+        }
+
+        #incompleteRegistration {
+            height: 175px;
+            width: 190px;
+            padding-right: 5px;
+            padding-left: 10px;
+        }
+
+        #incompleteRegDes {
+            height: 50px;
+            width: 160px;
+            padding-left: 0px;
+            padding-right: 0px;
+            position: center;
+            margin-left: 30px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-right: 5px;
+        }
+
+        .k-header {
+            font-size: 14.4px;
+            font-weight: 600;
+            border-bottom-color: #FFFFFF !important;
+            color: #595758;
+            padding-top: 10px;
+        }
+
+        .medium-number {
+            font-size: 50px;
+            padding-top: 10px;
+            font-weight: 600;
+        }
+
+        #map {
+            width: 48.75%;
+            height: 404px;
+            background-color: grey;
+            /*padding-left: 5px;
+            /*margin-right: 10px;*/
+        }
+
+        #missingDataNumberSignatures {
+            padding-left: 50px;
+            color: red;
+            margin-bottom: 2px;
+            font-size: 20px;
+        }
+
+        #missingDataNumberRegistration {
+            padding-left: 68px;
+            color: red;
+            margin-bottom: 2px;
+            font-size: 20px;
+        }
+
+        #missingSignaturesGauge {
+            height: 175px;
+            width: 190px;
+            padding-bottom: 0px;
+            padding-left: 8px;
+            padding-right: 10px;
+        }
+
+        #missingSigDes {
+            height: 50px;
+            width: 120px;
+            padding-left: 0px;
+            padding-right: 0px;
+            position: center;
+            margin-left: 30px;
+            font-size: 13px;
+            font-weight: 600;
+            /*margin-right: 0px;*/
+        }
+
+
+        #onSiteAndMissing {
+            padding-right: 10px;
+            /*margin-right: 5px;*/
+            width: 50%;
+            height: 100%;
+        }
+
+        .on-site-number-description {
+            padding-left: 0px;
+            font-size: 1.2em;
+            padding-top: 10px;
+            font-weight: 600;
+            margin-left: 2.5px;
+            margin-right: 2.5px;
+        }
+
+        .on-site-widget {
+            background-color: #FFFFFF;
+            margin-bottom: 5px;
+            margin-right: 5px;
+            width: 100%;
+        }
+
+        .on-site-portion-description {
+            font-size: 20px;
+        }
+
+        #site-indicator {
+            padding-left: 0px !important;
+            width: 104%;
+        }
+
+        .small-widget {
+            height: 137px;
+            padding-left: 15px;
+        }
+
+
+        .subtitle {
+            font-size: 1em;
+            font-weight: 500;
+            color: #D3D3D3;
+            margin-top: -10px;
+        }
+
+        .tableCell {
+            height: 50px;
+        }
+
+        #third-row-left {
+            padding-right: 2.5px;
+        }
+
+        #third-row-right {
+            padding-left: 2px;
+        }
+
+        .title {
+            font-size: 15px;
+        }
+
+        .topright {
+            position: absolute;
+            top: 8px;
+            right: 60px;
+            font-size: 18px;
+            color: #32CD32;
+        }
+
+        #top-right-small-sites-number {
+            right: 30px;
+        }
+
+        #total-attendance {
+            margin-right: 10px;
+            padding-left: 10px;
+        }
+
+        .whole-row {
+            margin-bottom: 5px;
+        }
+    </style>
