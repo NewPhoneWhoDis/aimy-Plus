@@ -1,0 +1,336 @@
+using Alpaca.Diagnostics;
+using Kiwi.Core.Constants;
+using Kiwi.Website.Portal.Filters;
+using Kiwi.Website.Portal.Models;
+using Kiwi.Website.Portal.Models.Constants;
+using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+
+namespace Kiwi.Website.Portal.Controllers
+{
+    public class DashboardFourController : Controller
+    {
+        // GET: DashboardFour
+        public ActionResult Index()
+        {
+            using (var db = SiteUtil.NewDb)
+            {
+                var currentSiteId = SiteUtil.CurrentOrg.Id;
+                DateTime currentTime = LocalizationUtil.LocalNow();
+
+
+                //PastDate used for the internationalData Stored procedure
+                var pastDateAsString = "2017-09-24";
+                DateTime pastDate = Convert.ToDateTime(pastDateAsString);
+
+
+                //Using previous stored procedure to get total booking amount 
+                var summary = db.DashboardThreeWidgetSummary(currentSiteId, currentTime).FirstOrDefault();
+
+
+                //Total Booking amount ($$$$)
+                ViewBag.TotalBookingAmount = string.Format("{0}{1}", LocalizationUtil.GetCurrencySymbolFromCurrentCulture(), CurrencyFormat(summary.TotalBookingAmount ?? 0));
+
+                //Total Booking Amount as a number
+                var bookingProcedure = db.InternationalDashboardBookingData(currentSiteId, currentTime, pastDate).FirstOrDefault();
+                ViewBag.TotalBookingNumber = bookingProcedure.TotalBookingNumber;
+
+                //Accessing Stored Procedure to get total sites
+                var totalSites = db.DashboardFourTotalSites(currentSiteId).FirstOrDefault();
+
+
+
+                //Total Sites
+                ViewBag.TotalSites = totalSites;
+
+
+                //New Sites this year 
+                ViewBag.NewSitesThisYear = summary.NewSiteThisYear;
+
+
+                //Org.CompanyName is masked so grouped by typeId instead, can be easily changed
+                var OwnersTypeId = db.Orgs.Where(x => x.TypeId == 4);
+                var OwnersCount = OwnersTypeId.Count();
+
+                //Total organisations where the typeId == 4
+                ViewBag.TotalOwners = OwnersCount;
+
+
+                //Gets the sum of the totalInvoices for a certain org 
+                //Need to change 257 to equal currentSiteId
+                var totalAmount = db.InternationalDashboardInvoiceValue(currentSiteId, currentTime, pastDate).FirstOrDefault();
+               
+
+                //Total invoice amount
+                ViewBag.TotalInvoiceAmount = totalAmount;
+
+                //Stored Procedure taken from previous dashboard to display the total children on site 
+                var childOnSiteToday = db.DashboardThreeChildStatToday(currentSiteId, currentTime, "").FirstOrDefault();
+
+                //Total Children on Site
+                ViewBag.ChildOnSiteToday = childOnSiteToday.TotalChildOnSiteToday;
+
+                //Total Unaccounted Today
+                ViewBag.TotalUnaccountedToday = childOnSiteToday.TotalUnaccountedToday;
+
+                //Total Absent Today
+                ViewBag.TotalAbsentToday = childOnSiteToday.TotalAbsentToday;
+
+
+
+                var siteName = db.Orgs.Where(x => x.Id == currentSiteId).Select(a => new
+                {
+                    Name = a.Name,
+                    Level = a.Lookup.Code,
+                    Description = a.Lookup.Description,
+                    Color = a.TypeId
+                }).FirstOrDefault();
+
+                ViewBag.SiteName = siteName.Name;
+                ViewBag.SiteLevel = siteName.Level;
+                ViewBag.SiteDescripton = siteName.Description;
+                ViewBag.SiteColor = BadgeColor(siteName.Color.GetValueOrDefault());
+
+
+                var incompleteData = db.DashboardThreeGetMissingData(currentSiteId).Take(1).ToList();
+
+                ViewBag.MissingSignatures = incompleteData.Sum(x => x.MissingSignitureNumber);
+                ViewBag.IncompleteRegistration = incompleteData.Sum(x => x.IncompleteRegistrationNumber);
+
+                //Date harcoded as 24/9 needs to be updated to minus from current dateTime
+                var getAttendanceThisMonth = db.InternationalDashboardBookingData(currentSiteId, currentTime, pastDate).FirstOrDefault();
+
+                //DailyAvgBooking was used because attendance was 0 so just used a number for test look for the dashboard, can be changed
+                ViewBag.Attendance = getAttendanceThisMonth.TotalAttendanceNumber;
+
+                return View();
+            }
+        }
+
+        public JsonResult GetMissingData()
+        {
+            using (var db = SiteUtil.NewDb)
+            {
+                var currentSiteId = SiteUtil.CurrentOrg.Id;
+
+                //The Below code is the correct one, the incompleteData being used at the moment is testing because the missing signatures count
+                //Was too high..
+
+                // var incompleteData = db.DashboardThreeGetMissingData(currentSiteId).Take(8).ToList();
+
+                var incompleteData = db.DashboardThreeGetMissingData(currentSiteId).Take(1).ToList();
+
+                //This will add al the missing signatures for the corrsponding siteId 
+                var missingSignatures = incompleteData.Sum(x => x.MissingSignitureNumber);
+                var incompleteRegistration = incompleteData.Sum(x => x.IncompleteRegistrationNumber);
+
+
+
+                return Json(incompleteData, JsonRequestBehavior.AllowGet);
+
+            }
+        }
+
+        public JsonResult GetFututreBookings()
+        {
+            using (var db = SiteUtil.NewDb)
+            {
+                List<FutureBooking> futureBookings = new List<FutureBooking>();
+                try
+                {
+                    var now = LocalizationUtil.LocalNow();
+                    var siteId = SiteUtil.CurrentOrg.Id; //use when production
+                    var transactionOptions = new System.Transactions.TransactionOptions();
+                    //set it to read uncommited
+                    transactionOptions.IsolationLevel = System.Transactions.IsolationLevel.ReadUncommitted;
+                    using (var transactionScope = new System.Transactions.TransactionScope(System.Transactions.TransactionScopeOption.Required, transactionOptions))
+                    {
+                        var data = db.DashboardThreeGetFutureBookings(siteId, now).ToList();
+
+                        foreach (var item in data)
+                        {
+                            FutureBooking futureBooking = new FutureBooking
+                            {
+                                bookings = item.TotalAVGBooking ?? default(double),
+                                timePeriod = item.TimePeriod ?? default(DateTime)
+                            };
+
+                            futureBookings.Add(futureBooking);
+                        }
+
+                        if (!futureBookings.Any(x => x.timePeriod == LocalizationUtil.LocalNow().AddDays(1)))
+                        {
+                            FutureBooking startTime = new FutureBooking
+                            {
+                                bookings = 0,
+                                timePeriod = LocalizationUtil.LocalNow().AddDays(1)
+                            };
+                            futureBookings.Add(startTime);
+                        }
+
+                        if (!futureBookings.Any(x => x.timePeriod == LocalizationUtil.LocalNow().AddMonths(9)))
+                        {
+                            FutureBooking endTime = new FutureBooking
+                            {
+                                bookings = 0,
+                                timePeriod = LocalizationUtil.LocalNow().AddMonths(9)
+                            };
+                            futureBookings.Add(endTime);
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Logging.ErrorFormat("{0}", e.ToString());
+                }
+                return Json(futureBookings, JsonRequestBehavior.AllowGet);
+            }
+        }
+
+        public JsonResult InternationalGridChildOrgData (int? id)
+        {
+            using (var db = SiteUtil.NewDb)
+            {
+                DateTime currentDate = LocalizationUtil.LocalNow();
+                   currentDate.ToString("yyyy-MM-dd");
+
+                var pastDateAsString = "2017-01-01";
+                DateTime pastDate = Convert.ToDateTime(pastDateAsString);
+
+                var siteId = SiteUtil.CurrentOrg.Id;
+                var totalChildrenSites = db.Orgs.Where(x => x.ParentId == siteId).FirstOrDefault();
+
+                List<ChildList> childOrgList = new List<ChildList>();
+                var newId = id;
+
+                //The if is used for the initial opening of the internationalGrid
+                //The else is when an Org is clicked to pass through the ParentId
+              if( newId == null)
+                {
+                    newId = siteId;
+                }
+              else
+                {
+                    newId = id.GetValueOrDefault();
+                }
+                    //This line below is the key difference between the if and the else 
+                    //The else is used for the initial opening of the dashboard 
+                    var childOrgs = db.Orgs.Where(x => x.ParentId == newId);
+                    
+                    foreach (var child in childOrgs)
+                    {
+                        var data = db.InternationalDashboardBookingData(child.Id, currentDate, pastDate).FirstOrDefault();
+                        var ChildOrgTotalSitesCount = db.Orgs.Where(x => x.ParentId == child.Id).Count();
+
+ 
+
+                        var totalInvoiceValue = db.InternationalDashboardInvoiceValue(child.Id, currentDate, pastDate).FirstOrDefault();
+
+                        var childIdNullCheckList = db.InternationalDashboardSchoolLocations(child.Id).ToList();
+                        var childIdNullCheck = childIdNullCheckList.FirstOrDefault();
+
+                        if (childIdNullCheck != null)
+                        {
+                            var getListOfSchoolLocations = db.InternationalDashboardSchoolLocations(child.Id).FirstOrDefault();
+                            ChildList childOrgListMember = new ChildList
+                            {
+                                Id = child.Id,
+                               // ParentOrgId = child.ParentId.GetValueOrDefault(),
+                                Name = child.Name,
+                                TotalSites = ChildOrgTotalSitesCount,
+                                TotalAttendanceNumber = data.TotalAttendanceNumber.GetValueOrDefault(),
+                                TotalBookingNumber = data.TotalBookingNumber.GetValueOrDefault(),
+                                TotalInvoiceAmount = totalInvoiceValue.GetValueOrDefault(),
+                                //TotalInvoiceAmount = string.Format("{0}{1}", LocalizationUtil.GetCurrencySymbolFromCurrentCulture(), CurrencyFormat(totalInvoiceValue ?? 0)),
+                                Longitude = getListOfSchoolLocations.SchoolLongitude.GetValueOrDefault(),
+                                Latitude = getListOfSchoolLocations.SchoolLatitude.GetValueOrDefault()
+                            };
+
+                            childOrgList.Add(childOrgListMember);
+                        }
+
+                        //If the site does not have Long and Lat then it will go to this method
+                        //However in future when all the sites have a coordinates the else can be left empty
+                        else
+                        {
+                          ChildList childOrgListMember = new ChildList
+                        {
+                            Id = child.Id,
+                            // ParentOrgId = child.ParentId.GetValueOrDefault(),
+                            Name = child.Name,
+                            TotalSites = ChildOrgTotalSitesCount,
+                            TotalAttendanceNumber = data.TotalAttendanceNumber.GetValueOrDefault(),
+                            TotalBookingNumber = data.TotalBookingNumber.GetValueOrDefault(),
+                            TotalInvoiceAmount = totalInvoiceValue.GetValueOrDefault()
+                        };
+
+                        childOrgList.Add(childOrgListMember);
+                    }
+
+                    }
+                  
+                return Json(childOrgList, JsonRequestBehavior.AllowGet);
+            }
+        }
+
+        //var watch = System.Diagnostics.Stopwatch.StartNew();
+        //// the code that you want to measure comes here
+        //watch.Stop();
+        //     var elapsedMs = watch.ElapsedMilliseconds;
+
+        public class ChildList
+        {
+            public int Id { get; set; }
+            public int ParentOrgId { get; set; }
+            public string Name { get; set; }
+            public int TotalSites { get; set; }
+            public int TotalAttendanceNumber { get; set; }
+            public int TotalBookingNumber { get; set; }
+            public decimal TotalInvoiceAmount { get; set; }
+            public decimal Longitude { get; set; }
+            public decimal Latitude { get; set; }
+
+        }
+
+        static string CurrencyFormat(decimal amount)
+        {
+            if (amount >= 1000000)
+            {
+                return (amount / 1000000).ToString("0.#M");
+
+            }
+            else if (amount >= 1000 && amount < 1000000)
+            {
+                return (amount / 1000).ToString("0.#k");
+            }
+            else
+            {
+                return (amount).ToString("0");
+            }
+        }
+
+        static string BadgeColor(int typeId)
+        {
+            switch (typeId)
+            {
+                case 1://Root
+                    return "#F44336;";
+                case 3://HO
+                    return "#FDB933;";
+                case 4://Master Franchisee
+                    return "#C76CAB;";
+                case 5://Franchisee
+                    return "#BFD730;";
+                case 6://Site
+                    return "#92C5EB;";
+                default:
+                    return "gray;";
+            }
+        }
+    }
+
+}
